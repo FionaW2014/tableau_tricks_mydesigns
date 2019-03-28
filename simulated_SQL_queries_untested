@@ -1,0 +1,38 @@
+Note: column names below are based on the “xxxxxxxxxxxxxxxxxx” stored in Tableau Server; in another word, please use discretion to identify the corresponding column names in xxxxxx database. 
+
+
+Step 1 Objective: Select applicable fields and apply filters that narrow down to previous 2 years completed labor-specific Repair/ Troubleshooting/ Unplanned Labor/ Warranty/ Custom Request items, etc.
+------------------Primary table filtering--------------------
+SELECT Wind_Park, Sr_Item, scada_fault_code, Incident_Number, Sr_Item (later to be grouped into cost models!!!), Service_Date, Quantity, Actual_Effort_Uom, Debrief_Number, Debrief_Status, Sr_Type, Item
+FROM t_gere_cx_sr_debrief_rpt
+WHERE NOT Sr_Item IN (‘VIRTUAL TURBINE’, NULL, #and_any_other_unidentified),
+and YEAR(Service_Date) BETWEEN 2017 AND 2018,
+and Actual_Effort_Uom = ‘HR’,
+and NOT Debrief_Status IN (‘Cancelled’, ‘Reject Debrief’),
+and Sr_Type IN (‘Debrief Approved…),
+and NOT scada_fault_code IN (‘2-No Error’, ‘100002-no error…),
+and Item LIKE ‘TBL%’ OR Item LIKE ‘RPR%’ OR Item LIKE ‘LBR%’,
+and Quantity <= 12;
+
+
+Step 2 Objective: obtain related columns from other tables in the same database, if not existing in one table, to serve for grouping purpose later
+------------------table joining---------------------
+SELECT Sr_Item, scada_fault_code, Incident_Number, Sr_Item, Service_Date, Quantity, Debrief_Number, Debrief_Status, Sr_Type, Item, Pole, (…. Other geo columns, State, City?)
+FROM t_gere_cx_sr_debrief_rpt, t_gere_cx_ou_pole_ref
+WHERE t_gere_cx_sr_debrief_rpt.Wind Park = t_gere_cx_ou_pole_ref.Wind Park
+
+
+
+Step 3 Objective: establish SR Standard Hour (target) over previous 2 years per FSA Model’s (or, Sr Item/ Turbine type whichever more generalized) SCADA fault code, and (maybe) then cumulative productivity per wind park for the last year
+Model’s SCADA Fault SR Standard hour = ((Avg.SR hours per Model’s SCADA Fault– 0.32×  (Avg.SR hours per Model’s SCADA Fault+ 1 Population Std.  SR hours per Model’s SCADA Fault)))/0.84    
+------------------grouping, pivoting-------------------
+SELECT Pole, Wind_Park, Sr_Item(grouped cost models!!!), scada_fault_code, 
+COUNT(DISTINCT Incident_Number) AS Qualified_modelfaultcode_SRCountD, 
+SUM(Quantity)/Qualified_modelfaultcode_SRCountD AS Qualified_modelfaultcode_Hr_Avg, 
+STDEV( SUM(Quantity) OVER (PARTITION BY Incident_Number) ) AS Qualified_modelfaultcode_Hr_Std, 
+(Qualified_modelfaultcode_Hr_Avg – 0.32*(Qualified_modelfaultcode_Hr_Avg+ Qualified_modelfaultcode_Hr_Std) ) / 0.84 AS Qualified_modelfaultcode_Hr_Standard,
+FORMAT(Qualified_modelfaultcode_Hr_Avg / Qualified_modelfaultcode_Hr_Standard, ‘#,##0%’) AS Qualified_modelfaultcode_Productivity
+FROM t_gere_cx_sr_debrief_rpt, t_gere_cx_ou_pole_ref
+GROUP BY t_gere_cx_ou_pole_ref.Pole, Wind_Park, Sr_Item(grouped cost models!!!), scada_fault_code
+ORDER BY Distinct_SR_Count;
+
