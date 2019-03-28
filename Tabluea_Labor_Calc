@@ -1,0 +1,38 @@
+Historic SR Incident CountD: (for dimension VIEW purpose)
+COUNTD([Incident Number])
+----------------------------------
+Capped Quant: 
+IF ([Quantity]>12) THEN 12
+ELSE [Quantity] END
+----------------------------------
+Hour per Incident/SR:
+{ FIXED [Incident Number] : SUM([Capped Quant])}
+----------------------------------
+Hr Target:
+{FIXED [FSA  Model],[Grouped SCADA Fault Code], [Pole]='All',[country]='All', [Service Date]>=Date('1/1/2017') AND [Service Date]<=Date('12/31/2018'): (AVG(   { FIXED [Incident Number] : SUM([Capped Quant])}   )*0.68-STDEVP(  { FIXED [Incident Number] : SUM([Capped Quant])}  )*0.32)/0.84}
+----------------------------------
+Productivity:
+[Hour per Incident/SR]/[Suggested Hr]
+----------------------------------
+Suggested Hr:
+IF (ABS([Hr Target])<2) THEN 2
+ELSEIF ([Hr Target] < 0) THEN ABS([Hr Target])
+ELSEIF ([Hour per Incident/SR]>10*[Hr Target]) THEN ABS([Hr Target])
+ELSEIF  ([Hr Target]>36) THEN 36
+ELSE [Hr Target] END
+----------------------------------
+Perform Diff:
+[Hour per Incident/SR]-[Suggested Hr]
+----------------------------------
+Country Prod:
+{FIXED [country],[Incident Number]:(AVG([Hour per Incident/SR])/AVG([Suggested Hr]))}
+----------------------------------
+Wind Park Prod:
+{FIXED [Wind Park],[Incident Number]:(AVG([Hour per Incident/SR])/AVG([Suggested Hr]))}
+----------------------------------
+Asc Ranking: 
+RANK(AVG([Wind Park Prod]) ,'asc')
+----------------------------------
+Desc Ranking:
+RANK(AVG([Wind Park Prod]) ,'desc')
+----------------------------------
